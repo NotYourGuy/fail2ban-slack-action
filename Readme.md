@@ -109,7 +109,7 @@ For this demonstration we are going to be using the SSH jail. If you haven’t a
 
 `sudo cp ../fail2ban/jail.conf ../fail2ban/jail.local`
 
-Now let’s open&nbsp;**../fail2ban/jail.local **and add the Slack notification action.
+Now let’s open&nbsp;**../fail2ban/jail.local** and add the Slack notification action.
 
 
 Apply the action to your jail(s) or all jails in (defaults) section
