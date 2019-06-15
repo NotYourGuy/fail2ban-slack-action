@@ -1,9 +1,5 @@
 ## Synopsis
 
-If you’re like me, staying on top of server logs is near impossible when you’re administrating more than one website. Even if I had the time, I don’t have the screen real estate to tail all of my server logs.
-
-But I always have time for Slack. It’s on my phone, my computer, and my mind half the day. It makes it easy to communicate when and where you want to.
-
 Using Fail2Ban, we can receive Slack notifications when a jail executes a ban or unban action. When the action is trigger, a notification will be sent to the slack channel of your choice with the corresponding jail name and offending IP.
 
 ## Requirements
@@ -17,9 +13,9 @@ CURL
 
 ## **Step 1.&nbsp;**
 
-**[Generate an Incoming WebHook API Token for Slack:](https://my.slack.com/services/new/incoming-webhook/)**
+**[Create a Slack App and enable / configure the Incoming WebHook feature within the app:](https://api.slack.com/incoming-webhooks)**
 
-The first thing you will need is an [API token](https://my.slack.com/services/new/incoming-webhook/) that will allow us to issue commands to the Slack REST API. Using an Incoming Webhook, we can send message to the channel of your choice.
+The first thing you will need is a webhook URL that will allow us to issue commands to the Slack REST API. Using an Incoming Webhook, we can send message to the channel of your choice.
 
 ## **Step 2.&nbsp;**
 
@@ -27,13 +23,11 @@ The first thing you will need is an [API token](https://my.slack.com/services/ne
 
 With root, use your favorite editor to create the following file:
 
-**/etc/fail2ban/action.d/slack-notify.conf**
+**../fail2ban/action.d/slack-notify.conf**
 
 ```
 #
-# Author: Cole Turner
-# coleturner.me
-# turner.cole@gmail.com
+# Author: Michael Lehmann
 #
 
 [Definition]
@@ -42,13 +36,17 @@ With root, use your favorite editor to create the following file:
 # Notes.:  command executed once at the start of Fail2Ban.
 # Values:  CMD
 #
-actionstart = curl -s -o /dev/null 'https://slack.com/api/chat.postMessage' -d 'token=<slack_api_token>' -d 'channel=#<slack_channel>' -d 'text=Fail2Ban (<name>) jail has started'
+# original  # actionstart = curl -X POST -H 'Content-type: application/json' --data '{"text":"Fail2Ban (<name>) jail has started"}' <slack_webhook_url>
+# one-liner # actionstart = curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"[$(hostname)] Fail2Ban (<name>) jail has started\"}" <slack_webhook_url>
+actionstart = curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"[<host_name>] Fail2Ban (<name>) jail has started\"}" <slack_webhook_url>
 
 # Option:  actionstop
 # Notes.:  command executed once at the end of Fail2Ban
 # Values:  CMD
 #
-actionstop = curl -s -o /dev/null 'https://slack.com/api/chat.postMessage' -d 'token=<slack_api_token>' -d 'channel=#<slack_channel>' -d 'text=Fail2Ban (<name>) jail has stopped'
+# original # actionstop = curl -X POST -H 'Content-type: application/json' --data '{"text":"Fail2Ban (<name>) jail has stopped"}' <slack_webhook_url>
+# one-liner # actionstop = curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"[$(hostname)] Fail2Ban (<name>) jail has stopped\"}" <slack_webhook_url>
+actionstop = curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"[<host_name>] Fail2Ban (<name>) jail has stopped\"}" <slack_webhook_url>
 
 # Option:  actioncheck
 # Notes.:  command executed once before each actionban command
@@ -64,8 +62,9 @@ actioncheck =
 #          <time>  unix timestamp of the ban time
 # Values:  CMD
 #
-
-actionban = curl -s -o /dev/null 'https://slack.com/api/chat.postMessage' -d 'token=<slack_api_token>' -d 'channel=#<slack_channel>' -d 'text=Fail2Ban (<name>) banned IP *<ip>* for <failures> failure(s)'
+# original  # actionban = curl -X POST -H 'Content-type: application/json' --data '{"text":"Fail2Ban (<name>) banned IP *<ip>* for <failures> failure(s)"}' <slack_webhook_url>
+# one-liner # actionban = curl ipinfo.io/<ip>/country | (read COUNTRY; curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"[$(hostname)] Fail2Ban (<name>) banned IP *<ip>* :flag-$COUNTRY: ($COUNTRY) \"}" <slack_webhook_url>)
+actionban = curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"[<host_name>] Fail2Ban (<name>) banned IP *<ip>* :flag-<country_name>: (<country_name>) \"}" <slack_webhook_url>
 
 # Option:  actionunban
 # Notes.:  command executed when unbanning an IP. Take care that the
@@ -75,18 +74,30 @@ actionban = curl -s -o /dev/null 'https://slack.com/api/chat.postMessage' -d 'to
 #          <time>  unix timestamp of the ban time
 # Values:  CMD
 #
-actionunban = curl -s -o /dev/null 'https://slack.com/api/chat.postMessage' -d 'token=<slack_api_token>' -d 'channel=#<slack_channel>' -d 'text=Fail2Ban (<name>) unbanned IP *<ip>*'
+# original # actionunban = curl -X POST -H 'Content-type: application/json' --data '{"text":"Fail2Ban (<name>) unbanned IP *<ip>*"}' <slack_webhook_url>
+# one-liner # actionunban = curl ipinfo.io/<ip>/country | (read COUNTRY; curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"[$(hostname)] Fail2Ban (<name>) unbanned IP *<ip>* :flag-$COUNTRY: ($COUNTRY) \"}" <slack_webhook_url>)
+actionunban = curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"[<host_name>] Fail2Ban (<name>) unbanned IP *<ip>* :flag-<country_name>: (<country_name>) \"}" <slack_webhook_url>
 
 [Init]
 
 init = 'Sending notification to Slack'
 
-slack_api_token = YOUR_SLACK_API_TOKEN_GOES_HERE
-slack_channel = general
+slack_webhook_url = <Add_Your_Full_Slack_Webhook_URL_Here>
+
+#The following are variables that will be evaluated at runtime in bash, thus cannot be used inside of single-quotes
+host_name = $(hostname)
+
+# lets find out from what country we have our hacker
+country_name = $(curl ipinfo.io/<ip>/country)
 ```
 
 
-Replace&nbsp;**YOUR_SLACK_API_TOKEN_GOES_HERE**&nbsp;with the API token you created with the Incoming hook. And where it says&nbsp;“**general**,” that’s the channel name (without the pound sign).
+Replace&nbsp;**<Add_Your_Full_Slack_Webhook_URL_Here>**&nbsp;with the Slack App webhook URL you created in **Step 1**.
+
+Also note that I added lines *original* and *one-liner* (commented out) to each action section. These are just alernatives and should work just as well, in their own way.
+
+* *original* is a plain basic curl request without adding hostname, country code, or country emoji flag.
+* *one-liner* performs everything in one-line (via piping) and has no need for the host_name nor country_name variables at the bottom of the config file.
 
 Save the file. Now it’s time to add this action to one of our jails.
 
@@ -96,9 +107,28 @@ Save the file. Now it’s time to add this action to one of our jails.
 
 For this demonstration we are going to be using the SSH jail. If you haven’t already, create a jail.local file for Fail2Ban in case a package update overwrite the default configuration:
 
-`sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local`
+`sudo cp ../fail2ban/jail.conf ../fail2ban/jail.local`
 
-Now let’s open&nbsp;**/etc/fail2ban/jail.local **and add the Slack notification action.
+Now let’s open&nbsp;**../fail2ban/jail.local **and add the Slack notification action.
+
+
+Apply the action to your jail(s) or all jails in (defaults) section
+
+**NOTE**: Additional actions just get added on a *newline*.
+If you only want slack-notifications for specific jails, then only define the action within those jails, instead of at the top level. 
+
+To apply to all jails, you might have something like the following (if you use email notifcations too):
+
+```
+[DEFAULT]
+...
+
+action = %(action_mwl)s
+         slack-notify
+...
+```
+
+To apply to only a specific jail (e.g. only ssh): 
 
 ```
 [ssh]
@@ -115,11 +145,19 @@ banaction = iptables-multiport
 
 The&nbsp;“ssh” configuration block will most likely use the default banaction, which means the property won’t be listed. Add the banaction line, using&nbsp;“slack-notify” as the second command. Save and close the file.
 
-**Now restart the Fail2Ban service and you should see your jails starting up:**
+**Now restart the Fail2Ban service (or entire letsencrypt docker container) and you should see your jails starting up:**
 
 _Fail2Ban (ssh) jail has started_
-
 
 ## License
 
 Use it and abuse it, just don't lose it.
+
+## Troubleshooting
+
+- If nothing happens, make sure that Fail2Ban actually started back up successfully. Make sure it actually starts. Are there any errors when it starts? If there are errors, fix them :)
+```
+fail2ban-client start
+```
+
+- A good general troubleshooting step is to try manually running the curl requests in your shell outside of fail2ban. Do they work at all?
