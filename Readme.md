@@ -32,6 +32,9 @@ With root, use your favorite editor to create the following file:
 
 [Definition]
 
+#(optional) Prevent notification/action for re-banned IPs when Fail2Ban restarts.
+norestored = 1
+
 # Option:  actionstart
 # Notes.:  command executed once at the start of Fail2Ban.
 # Values:  CMD
@@ -93,6 +96,8 @@ country_name = $(curl ipinfo.io/<ip>/country)
 
 
 Replace&nbsp;**<Add_Your_Full_Slack_Webhook_URL_Here>**&nbsp;with the Slack App webhook URL you created in **Step 1**.
+
+```Norestored = 1``` is an optional setting you can enable or disable to prevent or allow notifications/actions for re-banned IPs when the Fail2Ban service restarts.
 
 Also note that I added lines *original* and *one-liner* (commented out) to each action section. These are just alernatives and should work just as well, in their own way.
 
